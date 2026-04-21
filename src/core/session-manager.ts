@@ -6,32 +6,48 @@ type Listener = (event: any) => void;
 export class SessionManager {
   private sessions = new Map<string, any>();
   private listeners = new Map<string, Listener[]>();
-  
+
   async createSession(goal: string) {
     const id = crypto.randomUUID();
-    
+
     const { session } = await createAgentSession();
-    
+
     this.sessions.set(id, session);
     this.listeners.set(id, []);
-    
+
     session.subscribe((event: any) => {
       const mapped = mapPIEvent(event);
       if (!mapped) return;
-      
+
       const subs = this.listeners.get(id) || [];
       subs.forEach((fn) => fn(mapped));
     });
-    
+
     session.prompt(goal);
-    
+
     return id;
   }
-  
+
   subscribe(sessionId: string, listener: Listener) {
     const subs = this.listeners.get(sessionId);
     if (!subs) return;
-    
+
     subs.push(listener);
+  }
+
+  sendMessage(sessionId: string, input: string) {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+
+    session.prompt(input, {
+      streamingBehaviour: "followup",
+    });
+  }
+
+  stopSession(sessionId: string) {
+    const session = this.sessions.get(sessionId);
+    if (!session) return;
+
+    session.stop?.();
   }
 }
